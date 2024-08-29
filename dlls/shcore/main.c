@@ -32,10 +32,12 @@
 #include "shcore.h"
 #define WINSHLWAPI
 #include "shlwapi.h"
+#include "xmllite.h"
 
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shcore);
+DEFINE_GUID(IID_IXmlReaderInput, 0x0b3ccc9b, 0x9214, 0x428b, 0xa2, 0xae, 0xef, 0x3a, 0xa8, 0x71, 0xaf, 0xda);
 
 static DWORD shcore_tls;
 static IUnknown *process_ref;
@@ -555,17 +557,31 @@ static HRESULT WINAPI shstream_QueryInterface(IStream *iface, REFIID riid, void 
 
     TRACE("(%p)->(%s, %p)\n", stream, debugstr_guid(riid), out);
 
+    if (IsEqualIID(riid, &IID_IXmlReaderInput)) {
+        HRESULT hr;
+        if (FAILED(hr = CreateXmlReaderInputWithEncodingCodePage(
+            (IUnknown*)iface, NULL, 0, TRUE, L"", (IXmlReaderInput**)out
+        ))) {
+            ERR("CreateXmlreaderInput failed: %08x\n", hr);
+            return E_NOINTERFACE;
+        }
+        return S_OK;
+    }
+
     if (IsEqualIID(riid, &IID_IUnknown) ||
         IsEqualIID(riid, &IID_IStream) ||
+        IsEqualIID(riid, &IID_IXmlReaderInput) ||
         IsEqualIID(riid, &IID_ISequentialStream))
     {
         *out = iface;
         IStream_AddRef(iface);
+	WARN("Query interface, returning %s %p.\n", debugstr_guid(riid), iface);
         return S_OK;
     }
 
-    *out = NULL;
-    WARN("Unsupported interface %s.\n", debugstr_guid(riid));
+    //*out = NULL;
+    *out = 0xdeadbeef;
+    WARN("Unsupported interface, returning deadbeef %s.\n", debugstr_guid(riid));
     return E_NOINTERFACE;
 }
 
